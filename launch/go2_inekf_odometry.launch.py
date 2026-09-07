@@ -10,6 +10,9 @@ def generate_launch_description():
     state_publisher_launch_file = PathJoinSubstitution(
         [FindPackageShare("go2_odometry"), "launch", "go2_state_publisher.launch.py"]
     )
+    inekf_config_file = PathJoinSubstitution(
+        [FindPackageShare("go2_odometry"), "config", "inekf.yaml"]
+    )
 
     return LaunchDescription(
         [
@@ -19,7 +22,7 @@ def generate_launch_description():
                 executable="inekf_odom.py",
                 name="inekf_odom",
                 output="screen",
-                parameters=[],
+                parameters=[inekf_config_file],
             ),
         ]
     )

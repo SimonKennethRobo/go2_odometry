@@ -1,0 +1,51 @@
+inekf_odom:
+  ros__parameters:
+    # LowState.tick is in milliseconds and preserves elapsed time if callbacks
+    # are dropped under load.
+    use_lowstate_tick: true
+    max_propagation_dt: 0.02
+
+    # External pose input. With no mocap packets the estimator continues to
+    # operate from IMU and leg kinematics only.
+    mocap_enabled: false
+    mocap_topic: /vrpn_mocap/go2/pose
+
+    # Match the calibrated VRPN world/body conventions used by
+    # mocap_state_estimator. Disable this if the input is already x=front,
+    # y=left, z=up in both world and robot frames.
+    mocap_convert_axes: true
+    mocap_timeout: 0.1
+    mocap_initialize: true
+
+    # Measurement uncertainty and hard outlier gates.
+    mocap_position_std: 0.001
+    mocap_orientation_std: 0.005
+    mocap_position_gate: 0.5
+    mocap_orientation_gate: 0.8
+
+    # Reject isolated mocap jumps before differentiation. Three mutually
+    # consistent samples establish recovery after a real relocalization.
+    mocap_window_enabled: true
+    mocap_window_size: 7
+    mocap_prediction_gate: 0.02
+    mocap_jump_gate: 0.03
+    mocap_orientation_prediction_gate: 0.08
+    mocap_recovery_samples: 3
+
+    # Covariance-aware pose gates. The floors prevent an over-confident EKF
+    # covariance from rejecting normal fast motion.
+    mocap_nis_enabled: true
+    mocap_position_nis_gate: 16.27
+    mocap_orientation_nis_gate: 16.27
+    mocap_position_nis_floor_std: 0.10
+    mocap_orientation_nis_floor_std: 0.05
+    mocap_nis_recovery_samples: 3
+
+    # Causal quadratic fit over accepted poses, followed by a direct InEKF
+    # world-frame velocity observation.
+    mocap_velocity_enabled: true
+    mocap_velocity_min_samples: 5
+    mocap_velocity_std: 0.08
+    mocap_velocity_nis_gate: 16.27
+    mocap_velocity_nis_floor_std: 0.30
+    mocap_max_velocity: 5.0

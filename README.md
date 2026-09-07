@@ -61,10 +61,27 @@ A ros node connecting the [invariant extended kalman filter library](https://git
 
 This Kalman listen to:
 * `/lowstate`: to get IMU, joint and feet sensors data from the robot.
+* `/vrpn_mocap/go2/pose`: to fuse an absolute mocap position and orientation
+  when `mocap_enabled` is true.
 
 It then publishes on:
 * `/tf`: The floating base pose estimation
 * `/odometry/filtered`: The same pose estimate with covariances.
+
+Mocap fusion is configured in `config/inekf.yaml`. The input
+`geometry_msgs/PoseStamped` is converted with the same calibrated world/body
+axis mapping as `mocap_state_estimator`, then transformed from the tracked base
+frame to the IMU frame estimated internally by InEKF. Each fresh pose is fused
+once using its position/orientation uncertainty. Stale poses and innovations
+larger than the configured gates are ignored. Set `mocap_enabled: false` to use
+the original IMU and foot-kinematics-only estimator, or set
+`mocap_convert_axes: false` if the incoming pose already uses the target axes.
+Accepted mocap poses also feed a causal short-window velocity estimate into the
+InEKF velocity state. Local prediction gates reject isolated pose jumps, while
+NIS gates include covariance floors and consistent-sample recovery to avoid
+permanent rejection when the filter becomes over-confident. All three features
+can be independently disabled with `mocap_window_enabled`,
+`mocap_nis_enabled`, and `mocap_velocity_enabled` for ablation tests.
 
 ---
 ### go2_mocap.launch.py

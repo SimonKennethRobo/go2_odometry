@@ -8,7 +8,7 @@ from launch.conditions import IfCondition
 
 def generate_launch_description():
     odom_type_arg = DeclareLaunchArgument(
-        "odom_type", default_value="use_full_odom", description="Type of odometry desired between : fake, mocap"
+        "odom_type", default_value="use_full_odom", description="Type of odometry desired between : fake, mocap, use_full_odom, dual"
     )
 
     fake_odom_base_height_arg = DeclareLaunchArgument(
@@ -52,6 +52,10 @@ def generate_launch_description():
         [FindPackageShare("go2_odometry"), "launch", "go2_inekf_odometry.launch.py"]
     )
 
+    dual_odometry_launch_file = PathJoinSubstitution(
+        [FindPackageShare("go2_odometry"), "launch", "go2_dual_odometry.launch.py"]
+    )
+
     return LaunchDescription(
         [
             mocap_base_frame_arg,
@@ -74,6 +78,10 @@ def generate_launch_description():
                 condition=IfCondition(
                     PythonExpression(["'", LaunchConfiguration("odom_type"), "' == 'use_full_odom'"])
                 ),
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([dual_odometry_launch_file]),
+                condition=IfCondition(PythonExpression(["'", LaunchConfiguration("odom_type"), "' == 'dual'"])),
             ),
         ]
     )

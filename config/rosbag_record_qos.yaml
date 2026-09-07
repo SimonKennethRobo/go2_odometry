@@ -1,0 +1,5 @@
+/vrpn_mocap/go2/pose:
+  history: keep_last
+  depth: 10
+  reliability: best_effort
+  durability: volatile
