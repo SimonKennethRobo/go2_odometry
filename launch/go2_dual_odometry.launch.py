@@ -1,9 +1,9 @@
 """Two InEKF estimators on the same /lowstate, for Go2 + arm whole-body control.
 
-- inekf_odom        IMU + leg kinematics only -> /go2_x5/slam/odometry (canonical) and its legacy
+- inekf_odom        IMU + leg kinematics only -> /go2_x5/slam/odom (canonical) and its legacy
                     mirror /odometry/filtered (frame odom_leg, no TF).
                     What the locomotion policy was trained/deployed with (rl_sar).
-- inekf_odom_mocap  additionally fuses mocap  -> /odometry/mocap_fused (frame odom, owns the
+- inekf_odom_mocap  additionally fuses mocap  -> /go2_x5/slam/odom_mocap (frame odom, owns the
                     odom -> base TF). Drift-free world frame for the whole-body MPC and its
                     targets (ocs2_arm_controller floating base).
 Both share config/inekf.yaml; only the mocap switch, frames and outputs differ.
@@ -61,7 +61,7 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("mocap_topic", default_value="/vrpn_mocap/go2/pose"),
-            DeclareLaunchArgument("fused_topic", default_value="/odometry/mocap_fused"),
+            DeclareLaunchArgument("fused_topic", default_value="/go2_x5/slam/odom_mocap"),
             OpaqueFunction(function=setup),
         ]
     )

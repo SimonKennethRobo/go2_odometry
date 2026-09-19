@@ -33,7 +33,7 @@ class DumbOdom(Node):
         self.foot_frame_name = [prefix + "_foot" for prefix in ["FL", "FR", "RL", "RR"]]
         self.foot_frame_id = [self.robot.model.getFrameId(frame_name) for frame_name in self.foot_frame_name]
 
-        self.declare_parameter("output_topic", "/go2_x5/slam/odometry")
+        self.declare_parameter("output_topic", "/go2_x5/slam/odom")
         self.declare_parameter("legacy_output_topic", "/odometry/filtered")
         output_topic = self.get_parameter("output_topic").value
         legacy_topic = self.get_parameter("legacy_output_topic").value

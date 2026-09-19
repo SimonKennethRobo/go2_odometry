@@ -17,7 +17,7 @@ class FakeOdometryNode(Node):
         self.declare_parameter("odom_frame", "odom")
 
         self.tf_broadcaster = TransformBroadcaster(self)
-        self.declare_parameter("output_topic", "/go2_x5/slam/odometry")
+        self.declare_parameter("output_topic", "/go2_x5/slam/odom")
         self.declare_parameter("legacy_output_topic", "/odometry/filtered")
         output_topic = self.get_parameter("output_topic").value
         legacy_topic = self.get_parameter("legacy_output_topic").value

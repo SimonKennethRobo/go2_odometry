@@ -102,7 +102,7 @@ class Inekf(Node):
             parameters=[
                 ("base_frame", "base", PD(description="Robot base frame name (for TF)")),
                 ("odom_frame", "odom", PD(description="World frame name (for TF)")),
-                ("output_topic", "/go2_x5/slam/odometry",
+                ("output_topic", "/go2_x5/slam/odom",
                  PD(description="Canonical odometry topic (go2_x5_interfaces kSlamOdometryTopic)")),
                 ("legacy_output_topic", "/odometry/filtered",
                  PD(description="Legacy mirror of the same message; empty or equal to output_topic disables it")),

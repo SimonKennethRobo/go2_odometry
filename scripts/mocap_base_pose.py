@@ -52,7 +52,7 @@ class MocapOdometryNode(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
 
         if self.mocap_as_pose_estimate:  # publish odometry if mocap is used as a perfect pose estimator
-            self.declare_parameter("output_topic", "/go2_x5/slam/odometry")
+            self.declare_parameter("output_topic", "/go2_x5/slam/odom")
             self.declare_parameter("legacy_output_topic", "/odometry/filtered")
             output_topic = self.get_parameter("output_topic").value
             legacy_topic = self.get_parameter("legacy_output_topic").value
