@@ -17,7 +17,14 @@ class FakeOdometryNode(Node):
         self.declare_parameter("odom_frame", "odom")
 
         self.tf_broadcaster = TransformBroadcaster(self)
-        self.odometry_publisher = self.create_publisher(Odometry, "odometry/filtered", 10)
+        self.declare_parameter("output_topic", "/go2_x5/slam/odometry")
+        self.declare_parameter("legacy_output_topic", "/odometry/filtered")
+        output_topic = self.get_parameter("output_topic").value
+        legacy_topic = self.get_parameter("legacy_output_topic").value
+        self.odometry_publisher = self.create_publisher(Odometry, output_topic, 10)
+        self.legacy_odom_publisher = (
+            self.create_publisher(Odometry, legacy_topic, 10) if legacy_topic and legacy_topic != output_topic else None
+        )
 
         self.timer = self.create_timer(0.01, self.publish_odom_cb)
 
@@ -61,6 +68,8 @@ class FakeOdometryNode(Node):
             0.0,
         )
         self.odometry_publisher.publish(odometry_msg)
+        if self.legacy_odom_publisher:
+            self.legacy_odom_publisher.publish(odometry_msg)
 
 
 def main(args=None):

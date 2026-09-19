@@ -1,6 +1,7 @@
 """Two InEKF estimators on the same /lowstate, for Go2 + arm whole-body control.
 
-- inekf_odom        IMU + leg kinematics only -> /odometry/filtered (frame odom_leg, no TF).
+- inekf_odom        IMU + leg kinematics only -> /go2_x5/slam/odometry (canonical) and its legacy
+                    mirror /odometry/filtered (frame odom_leg, no TF).
                     What the locomotion policy was trained/deployed with (rl_sar).
 - inekf_odom_mocap  additionally fuses mocap  -> /odometry/mocap_fused (frame odom, owns the
                     odom -> base TF). Drift-free world frame for the whole-body MPC and its
@@ -43,8 +44,15 @@ def setup(context):
         estimator("inekf_odom", {"mocap_enabled": False, "publish_tf": False, "odom_frame": "odom_leg"}),
         estimator(
             "inekf_odom_mocap",
-            {"mocap_enabled": True, "publish_tf": True, "odom_frame": "odom", "mocap_topic": args["mocap_topic"]},
-            [("/odometry/filtered", args["fused_topic"])],
+            {
+                "mocap_enabled": True,
+                "publish_tf": True,
+                "odom_frame": "odom",
+                "mocap_topic": args["mocap_topic"],
+                # Not the canonical topic: that one stays the leg-only estimate.
+                "output_topic": args["fused_topic"],
+                "legacy_output_topic": "",
+            },
         ),
     ]
 

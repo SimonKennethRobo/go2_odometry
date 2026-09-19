@@ -102,6 +102,10 @@ class Inekf(Node):
             parameters=[
                 ("base_frame", "base", PD(description="Robot base frame name (for TF)")),
                 ("odom_frame", "odom", PD(description="World frame name (for TF)")),
+                ("output_topic", "/go2_x5/slam/odometry",
+                 PD(description="Canonical odometry topic (go2_x5_interfaces kSlamOdometryTopic)")),
+                ("legacy_output_topic", "/odometry/filtered",
+                 PD(description="Legacy mirror of the same message; empty or equal to output_topic disables it")),
                 ("publish_tf", True,
                  PD(description="Broadcast odom_frame -> base_frame; disable for all but one estimator")),
                 ("robot_freq", 500.0, PD(description="Frequency at which the robot publish its state")),
@@ -271,7 +275,12 @@ class Inekf(Node):
                 self.mocap_callback,
                 qos_profile_sensor_data,
             )
-        self.odom_publisher = self.create_publisher(Odometry, "/odometry/filtered", 1)
+        output_topic = self.get_parameter("output_topic").value
+        legacy_topic = self.get_parameter("legacy_output_topic").value
+        self.odom_publisher = self.create_publisher(Odometry, output_topic, 1)
+        self.legacy_odom_publisher = (
+            self.create_publisher(Odometry, legacy_topic, 1) if legacy_topic and legacy_topic != output_topic else None
+        )
         self.tf_broadcaster = TransformBroadcaster(self) if self.publish_tf else None
 
         # Invariant EKF
@@ -839,6 +848,8 @@ class Inekf(Node):
         odom_msg.twist.twist.angular.z = float(base_velocity.angular[2])
 
         self.odom_publisher.publish(odom_msg)
+        if self.legacy_odom_publisher:
+            self.legacy_odom_publisher.publish(odom_msg)
 
 
 def main(args=None):

@@ -33,7 +33,16 @@ class DumbOdom(Node):
         self.foot_frame_name = [prefix + "_foot" for prefix in ["FL", "FR", "RL", "RR"]]
         self.foot_frame_id = [self.robot.model.getFrameId(frame_name) for frame_name in self.foot_frame_name]
 
-        self.odom_publisher = self.create_publisher(Odometry, "/odometry/filtered", qos_profile_keeplast)
+        self.declare_parameter("output_topic", "/go2_x5/slam/odometry")
+        self.declare_parameter("legacy_output_topic", "/odometry/filtered")
+        output_topic = self.get_parameter("output_topic").value
+        legacy_topic = self.get_parameter("legacy_output_topic").value
+        self.odom_publisher = self.create_publisher(Odometry, output_topic, qos_profile_keeplast)
+        self.legacy_odom_publisher = (
+            self.create_publisher(Odometry, legacy_topic, qos_profile_keeplast)
+            if legacy_topic and legacy_topic != output_topic
+            else None
+        )
         self.tf_broadcaster = TransformBroadcaster(self)
         self.transform_msg = TransformStamped()
         self.odom_msg = Odometry()
@@ -137,6 +146,8 @@ class DumbOdom(Node):
 
         self.tf_broadcaster.sendTransform(self.transform_msg)
         self.odom_publisher.publish(self.odom_msg)
+        if self.legacy_odom_publisher:
+            self.legacy_odom_publisher.publish(self.odom_msg)
 
 
 def main(args=None):

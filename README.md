@@ -66,7 +66,8 @@ This Kalman listen to:
 
 It then publishes on:
 * `/tf`: The floating base pose estimation
-* `/odometry/filtered`: The same pose estimate with covariances.
+* `/go2_x5/slam/odometry`: The same pose estimate with covariances (canonical Go2-X5 topic, parameter `output_topic`).
+* `/odometry/filtered`: Legacy mirror of the same message (parameter `legacy_output_topic`; empty disables it).
 
 Mocap fusion is configured in `config/inekf.yaml`. The input
 `geometry_msgs/PoseStamped` is converted with the same calibrated world/body
@@ -94,7 +95,8 @@ By default the node launches:
 Node charged of the communication with the Qualisys Motion Capture system.
 
 Published topics:
-* `/odometry/filtered`: position of the robot base
+* `/go2_x5/slam/odometry` (`output_topic`) and its legacy mirror `/odometry/filtered` (`legacy_output_topic`):
+  position of the robot base (only when `mimic_go2_odometry` is set)
 * `/tf` : Transform between *odom_frame* (fixed) and *base_frame* (tied to the robot)
 
 Ros parameters :
