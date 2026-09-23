@@ -19,7 +19,7 @@ def generate_launch_description():
             IncludeLaunchDescription(PythonLaunchDescriptionSource([state_publisher_launch_file])),
             Node(
                 package="go2_odometry",
-                executable="inekf_odom.py",
+                executable="inekf_odom_node",
                 name="inekf_odom",
                 output="screen",
                 parameters=[inekf_config_file],

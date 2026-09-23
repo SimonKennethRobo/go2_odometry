@@ -101,13 +101,16 @@ class Inekf(Node):
             namespace="",
             parameters=[
                 ("base_frame", "base", PD(description="Robot base frame name (for TF)")),
-                ("odom_frame", "odom", PD(description="World frame name (for TF)")),
+                ("odom_frame", "odom", PD(description="Local odometry frame name (for TF)")),
+                ("world_frame", "world", PD(description="Absolute mocap/world frame name (for TF and mocap odometry)")),
                 ("output_topic", "/go2_x5/slam/odom",
                  PD(description="Canonical odometry topic (go2_x5_interfaces kSlamOdometryTopic)")),
+                ("mocap_output_topic", "/go2_x5/slam/odom_mocap",
+                 PD(description="World-frame odometry mirror; falls back to pure odometry when mocap is disabled")),
                 ("legacy_output_topic", "/odometry/filtered",
                  PD(description="Legacy mirror of the same message; empty or equal to output_topic disables it")),
                 ("publish_tf", True,
-                 PD(description="Broadcast odom_frame -> base_frame; disable for all but one estimator")),
+                 PD(description="Broadcast odom_frame -> base_frame and world_frame -> odom_frame; disable for all but one estimator")),
                 ("robot_freq", 500.0, PD(description="Frequency at which the robot publish its state")),
                 ("use_lowstate_tick", True, PD(description="Use the LowState millisecond tick for propagation dt")),
                 ("max_propagation_dt", 0.02, PD(description="Maximum accepted propagation dt before fallback")),
@@ -155,6 +158,7 @@ class Inekf(Node):
 
         self.base_frame = self.get_parameter("base_frame").value
         self.odom_frame = self.get_parameter("odom_frame").value
+        self.world_frame = self.get_parameter("world_frame").value
         self.publish_tf = self.get_parameter("publish_tf").value
         self.dt = 1.0 / self.get_parameter("robot_freq").value
         self.use_lowstate_tick = self.get_parameter("use_lowstate_tick").value
@@ -276,12 +280,19 @@ class Inekf(Node):
                 qos_profile_sensor_data,
             )
         output_topic = self.get_parameter("output_topic").value
+        mocap_output_topic = self.get_parameter("mocap_output_topic").value
         legacy_topic = self.get_parameter("legacy_output_topic").value
         self.odom_publisher = self.create_publisher(Odometry, output_topic, 1)
+        self.mocap_odom_publisher = (
+            self.create_publisher(Odometry, mocap_output_topic, 1)
+            if mocap_output_topic and mocap_output_topic != output_topic
+            else None
+        )
         self.legacy_odom_publisher = (
             self.create_publisher(Odometry, legacy_topic, 1) if legacy_topic and legacy_topic != output_topic else None
         )
         self.tf_broadcaster = TransformBroadcaster(self) if self.publish_tf else None
+        self.world_odom_pose = pin.SE3(np.eye(3), np.zeros(3))
 
         # Invariant EKF
         gravity = np.array([0, 0, -9.81])
@@ -802,9 +813,23 @@ class Inekf(Node):
         base_pose = oMimu.act(self.imuMbase)
         base_velocity = self.imuMbase.actInv(v_imu_local)
 
+        # The InEKF state is expressed in ``odom``.  Keep that local estimate
+        # as odom -> base, then use the latest accepted mocap pose to estimate
+        # world -> odom.  Composing the two gives a world-frame pose for the
+        # mocap odometry topic.  With mocap disabled the identity transform is
+        # used, so the mocap topic remains a live pure-odometry fallback.
+        if self.mocap_enabled and self.mocap_is_fresh():
+            mocap_base_pose = self.latest_mocap_pose.act(self.imuMbase)
+            self.world_odom_pose = mocap_base_pose.act(base_pose.inverse())
+        elif not self.mocap_enabled:
+            self.world_odom_pose = pin.SE3(np.eye(3), np.zeros(3))
+        world_base_pose = self.world_odom_pose.act(base_pose)
+
         # Convert to quaternion
         base_quaternion = pin.Quaternion(base_pose.rotation)
         base_quaternion.normalize()
+        world_base_quaternion = pin.Quaternion(world_base_pose.rotation)
+        world_base_quaternion.normalize()
 
         # TF2 messages
         transform_msg = TransformStamped()
@@ -823,6 +848,22 @@ class Inekf(Node):
 
         if self.tf_broadcaster is not None:
             self.tf_broadcaster.sendTransform(transform_msg)
+
+            if self.world_frame != self.odom_frame:
+                world_odom_msg = TransformStamped()
+                world_odom_msg.header.stamp = timestamp
+                world_odom_msg.header.frame_id = self.world_frame
+                world_odom_msg.child_frame_id = self.odom_frame
+                world_odom_msg.transform.translation.x = float(self.world_odom_pose.translation[0])
+                world_odom_msg.transform.translation.y = float(self.world_odom_pose.translation[1])
+                world_odom_msg.transform.translation.z = float(self.world_odom_pose.translation[2])
+                world_odom_quaternion = pin.Quaternion(self.world_odom_pose.rotation)
+                world_odom_quaternion.normalize()
+                world_odom_msg.transform.rotation.x = world_odom_quaternion.x
+                world_odom_msg.transform.rotation.y = world_odom_quaternion.y
+                world_odom_msg.transform.rotation.z = world_odom_quaternion.z
+                world_odom_msg.transform.rotation.w = world_odom_quaternion.w
+                self.tf_broadcaster.sendTransform(world_odom_msg)
 
         # Odometry topic
         odom_msg = Odometry()
@@ -850,6 +891,26 @@ class Inekf(Node):
         self.odom_publisher.publish(odom_msg)
         if self.legacy_odom_publisher:
             self.legacy_odom_publisher.publish(odom_msg)
+
+        if self.mocap_odom_publisher:
+            mocap_odom_msg = Odometry()
+            mocap_odom_msg.header.stamp = timestamp
+            mocap_odom_msg.header.frame_id = self.world_frame
+            mocap_odom_msg.child_frame_id = self.base_frame
+            mocap_odom_msg.pose.pose.position.x = float(world_base_pose.translation[0])
+            mocap_odom_msg.pose.pose.position.y = float(world_base_pose.translation[1])
+            mocap_odom_msg.pose.pose.position.z = float(world_base_pose.translation[2])
+            mocap_odom_msg.pose.pose.orientation.x = world_base_quaternion.x
+            mocap_odom_msg.pose.pose.orientation.y = world_base_quaternion.y
+            mocap_odom_msg.pose.pose.orientation.z = world_base_quaternion.z
+            mocap_odom_msg.pose.pose.orientation.w = world_base_quaternion.w
+            mocap_odom_msg.twist.twist.linear.x = float(base_velocity.linear[0])
+            mocap_odom_msg.twist.twist.linear.y = float(base_velocity.linear[1])
+            mocap_odom_msg.twist.twist.linear.z = float(base_velocity.linear[2])
+            mocap_odom_msg.twist.twist.angular.x = float(base_velocity.angular[0])
+            mocap_odom_msg.twist.twist.angular.y = float(base_velocity.angular[1])
+            mocap_odom_msg.twist.twist.angular.z = float(base_velocity.angular[2])
+            self.mocap_odom_publisher.publish(mocap_odom_msg)
 
 
 def main(args=None):

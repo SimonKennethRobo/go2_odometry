@@ -19,14 +19,29 @@ find_package(inekf REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(unitree_description REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 
 unset(PYTHON_SOABI)
 
 add_executable(state_converter_node src/go2_state_converter_node.cpp)
 ament_target_dependencies(state_converter_node rclcpp unitree_go sensor_msgs)
 
+# C++ port of scripts/inekf_odom.py. The Python node paid ~47% of a Jetson core
+# in rclpy wake-ups alone at the 500 Hz /lowstate rate.
+add_executable(inekf_odom_node src/inekf_odom_node.cpp)
+ament_target_dependencies(inekf_odom_node
+  rclcpp
+  unitree_go
+  nav_msgs
+  geometry_msgs
+  tf2_ros
+  ament_index_cpp
+)
+target_link_libraries(inekf_odom_node inekf::inekf pinocchio::pinocchio)
+
 install(TARGETS
   state_converter_node
+  inekf_odom_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

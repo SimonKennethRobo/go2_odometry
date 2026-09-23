@@ -56,8 +56,8 @@ Details on each parameter are given in the launchfile description below.
 This file launches **go2_state_publisher.launch.py** detailled further down.
 The other nodes launched are:
 
-##### go2_odometry/inekf_odom.py
-A ros node connecting the [invariant extended kalman filter library](https://github.com/inria-paris-robotics-lab/invariant-ekf) to topics.
+##### go2_odometry/inekf_odom_node
+The default launch uses the C++ node, which connects the [invariant extended kalman filter library](https://github.com/inria-paris-robotics-lab/invariant-ekf) to topics without the per-message Python executor overhead at 500 Hz. `scripts/inekf_odom.py` remains an equivalent reference/fallback implementation.
 
 This Kalman listen to:
 * `/lowstate`: to get IMU, joint and feet sensors data from the robot.
@@ -65,8 +65,13 @@ This Kalman listen to:
   when `mocap_enabled` is true.
 
 It then publishes on:
-* `/tf`: The floating base pose estimation
+* `/tf`: `odom -> base` from the InEKF estimate and `world -> odom` from the
+  accepted mocap pose. The latter is identity while mocap is disabled, so the
+  frame tree remains connected for pure odometry.
 * `/go2_x5/slam/odom`: The same pose estimate with covariances (canonical Go2-X5 topic, parameter `output_topic`).
+* `/go2_x5/slam/odom_mocap`: A world-frame odometry mirror. It uses the mocap
+  aligned pose when mocap is available and publishes the pure odometry pose
+  directly when `mocap_enabled` is false (parameter `mocap_output_topic`).
 * `/odometry/filtered`: Legacy mirror of the same message (parameter `legacy_output_topic`; empty disables it).
 
 Mocap fusion is configured in `config/inekf.yaml`. The input

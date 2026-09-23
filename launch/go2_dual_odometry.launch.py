@@ -3,8 +3,8 @@
 - inekf_odom        IMU + leg kinematics only -> /go2_x5/slam/odom (canonical) and its legacy
                     mirror /odometry/filtered (frame odom_leg, no TF).
                     What the locomotion policy was trained/deployed with (rl_sar).
-- inekf_odom_mocap  additionally fuses mocap  -> /go2_x5/slam/odom_mocap (frame odom, owns the
-                    odom -> base TF). Drift-free world frame for the whole-body MPC and its
+- inekf_odom_mocap  additionally fuses mocap  -> /go2_x5/slam/odom_mocap (frame world, owns the
+                    odom -> base and world -> odom TFs). Drift-free world frame for the whole-body MPC and its
                     targets (ocs2_arm_controller floating base).
 Both share config/inekf.yaml; only the mocap switch, frames and outputs differ.
 """
@@ -27,21 +27,29 @@ def setup(context):
     def estimator(name, overrides, remappings=()):
         return Node(
             package="go2_odometry",
-            executable="inekf_odom.py",
+            executable="inekf_odom_node",
             name=name,
             output="screen",
             parameters=[{**common, **overrides}],
             remappings=list(remappings),
-            # The filter runs 4x4..15x15 numpy algebra at 500 Hz: BLAS worker threads only
-            # add spin-wait overhead (several cores per estimator on the Jetson).
-            additional_env={"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"},
+            # Keep the Jetson C++ estimator single-threaded; the Python node is
+            # retained as a reference implementation and fallback executable.
+            additional_env={"OMP_NUM_THREADS": "1"},
         )
 
     return [
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(share, "launch", "go2_state_publisher.launch.py"))
         ),
-        estimator("inekf_odom", {"mocap_enabled": False, "publish_tf": False, "odom_frame": "odom_leg"}),
+        estimator(
+            "inekf_odom",
+            {
+                "mocap_enabled": False,
+                "publish_tf": False,
+                "mocap_output_topic": "",
+                "odom_frame": "odom_leg",
+            },
+        ),
         estimator(
             "inekf_odom_mocap",
             {
@@ -49,6 +57,7 @@ def setup(context):
                 "publish_tf": True,
                 "odom_frame": "odom",
                 "mocap_topic": args["mocap_topic"],
+                "world_frame": "world",
                 # Not the canonical topic: that one stays the leg-only estimate.
                 "output_topic": args["fused_topic"],
                 "legacy_output_topic": "",

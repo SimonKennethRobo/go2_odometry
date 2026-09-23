@@ -9,6 +9,8 @@ inekf_odom:
     # operate from IMU and leg kinematics only.
     mocap_enabled: false
     mocap_topic: /vrpn_mocap/go2/pose
+    world_frame: world
+    mocap_output_topic: /go2_x5/slam/odom_mocap
 
     # Match the calibrated VRPN world/body conventions used by
     # mocap_state_estimator. Disable this if the input is already x=front,
